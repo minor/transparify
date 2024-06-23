@@ -150,6 +150,7 @@ export default function Home() {
 
     socket.addEventListener("close", () => {
       console.log("connection to hume closed");
+      sock = connect_hume();
     });
 
     return socket;
