@@ -3,22 +3,52 @@ import { useEffect, useRef, useState } from "react";
 import Groq, { toFile } from "groq-sdk";
 
 export default function Home() {
-  const [stream, setStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const chunks: Blob[] = [];
-  let recorder: MediaRecorder;
-  const groq = new Groq({ apiKey: process.env.NEXT_PUBLIC_GROQ_API_KEY, dangerouslyAllowBrowser: true });
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const sock:WebSocket = connect_hume();
+  let astream: MediaStream;
+  let arecorder:MediaRecorder;
+  let vstream:MediaStream;
+  let vrecorder: MediaRecorder;
+  let groq: Groq;
 
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
-      recorder = new MediaRecorder(stream);
-      recorder.ondataavailable = (e) => {
-        chunks.push(e.data);
-        transcribe(new Blob(chunks, {type: chunks[0].type}), groq);
+
+      astream = new MediaStream();
+      for (const track of stream.getAudioTracks()) {
+        astream.addTrack(track);
+      }
+      vstream = new MediaStream();
+      for (const track of stream.getVideoTracks()) {
+        vstream.addTrack(track);
+      }
+
+      arecorder = new MediaRecorder(astream);
+      vrecorder = new MediaRecorder(vstream);
+
+      arecorder.ondataavailable = (e) => {
+        transcribe(e.data, groq);
+        hume_query(sock, e.data, {prosody: {}});
       };
-    }
-    console.log(stream);
+      vrecorder.ondataavailable = (e) => {
+        hume_query(sock, e.data, {face: {}});
+      }
+
+      setInterval(() => {
+        if (arecorder.state == "recording") {
+          arecorder.stop();
+          arecorder.start();
+        };
+        if (vrecorder.state == "recording") {
+          vrecorder.stop();
+          vrecorder.start();
+        };
+      }, 3000);
+    };
+    
+    groq = new Groq({ apiKey: process.env.NEXT_PUBLIC_GROQ_API_KEY, dangerouslyAllowBrowser: true });
   }, [stream]);
 
   const handleShareButton = () => {
@@ -43,6 +73,47 @@ export default function Home() {
     return response;
   };
 
+  function connect_hume(): WebSocket {
+    const socket = new WebSocket(`wss://api.hume.ai/v0/stream/models?apikey=${process.env.NEXT_PUBLIC_HUME_API_KEY}`);
+  
+    socket.addEventListener('open', () => {
+      console.log("connection to hume established");
+    });
+  
+    socket.addEventListener('message', (e) => {
+      const data: any = JSON.parse(e.data);
+      const frame = Number(data.payload_id);
+      console.log(data);
+    });
+  
+    socket.addEventListener('close', () => {
+      console.log("connection to hume closed");
+    });
+  
+    return socket;
+  }
+  
+  async function hume_query(socket: WebSocket, blob: Blob, models: Object) {
+    const data = await blobToBase64(blob);
+  
+    const message = JSON.stringify({data, models, raw_text: false});
+    socket.send(message);
+  }
+  
+  function blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve: (value: string) => void, _) => {
+      const reader = new FileReader();
+  
+      reader.onloadend = () => {
+        if (!reader.result) return;
+  
+        const result = reader.result as string;
+        resolve(result.split(',')[1]);
+      };
+      reader.readAsDataURL(blob);
+    });
+  }
+
   return (
     <div className="flex h-screen w-full">
       <div className="flex-1 bg-background p-8">
@@ -62,13 +133,20 @@ export default function Home() {
             ref={videoRef}
             autoPlay
             className="w-full h-full"
-            onPlay={() =>
-              recorder.state == "paused"
-                ? recorder.resume()
-                : recorder.start(3000)
-            }
-            onPause={() => recorder.pause()}
-            onEnded={() => recorder.stop()}
+            onPlay={() => {
+              if (arecorder.state == "paused") {
+                arecorder.resume();
+              } else {
+                arecorder.start();
+              }
+              if (vrecorder.state == "paused") {
+                vrecorder.resume();
+              } else {
+                vrecorder.start();
+              }
+            }}
+            onPause={() => { arecorder.pause(); vrecorder.pause(); }}
+            onEnded={() => { arecorder.stop(); vrecorder.stop(); }}
           />
         </div>
       </div>
