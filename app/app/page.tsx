@@ -6,12 +6,121 @@ import {
   AvatarFallback,
 } from "../../components/ui/avatar";
 import { Textarea } from "../../components/ui/textarea";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import React, { useEffect, useRef, useState } from "react";
 
-export default function Component() {
-  const searchParams = useSearchParams();
+import fetch from "cross-fetch";
+import Groq, { toFile } from "groq-sdk";
+
+interface UseAudioTranscriberProps {
+  onTranscribe: (transcription: string) => void;
+  groq: Groq;
+}
+
+// transcribe function
+async function transcribe(blob: Blob, groq: Groq) {
+  const startTime = performance.now();
+  // get stt from groq & openai whisper
+  const response = await groq.audio.translations.create({
+    file: await toFile(blob, "audio.webm"),
+    model: "whisper-large-v3",
+    prompt: "",
+    response_format: "json",
+    temperature: 0,
+  });
+  const endTime = performance.now();
+  // get how long the transcription took
+  console.log(`[TRANSCRIPTION]: ${(endTime - startTime).toFixed(2)} ms`);
+  return response;
+}
+
+//
+const useAudioTranscriber = ({
+  onTranscribe,
+  groq,
+}: UseAudioTranscriberProps) => {
+  const audioContext = useRef<AudioContext | null>(null);
+  const mediaStreamSource = useRef<MediaStreamAudioSourceNode | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const transcriptionInterval = useRef<number | null>(null);
+  const analyser = useRef<AnalyserNode | null>(null);
+  const isCapturing = useRef<boolean>(false);
+
+  const startCapture = async () => {
+    if (!audioContext.current) {
+      audioContext.current = new AudioContext();
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+      });
+
+      mediaStreamSource.current =
+        audioContext.current.createMediaStreamSource(stream);
+      analyser.current = audioContext.current.createAnalyser();
+      mediaStreamSource.current.connect(analyser.current);
+
+      const recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      recorder.start(500); // Collect data into blobs every 500ms
+
+      isCapturing.current = true;
+
+      transcriptionInterval.current = window.setInterval(async () => {
+        if (audioChunksRef.current.length > 0) {
+          const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+          const transcription = await transcribe(blob, groq);
+          onTranscribe(transcription.text);
+          audioChunksRef.current = []; // Clear the chunks after transcription
+        }
+      }, 500);
+    } catch (error) {
+      console.error("Error capturing audio:", error);
+    }
+  };
+
+  const stopCapture = () => {
+    if (transcriptionInterval.current) {
+      clearInterval(transcriptionInterval.current);
+    }
+    if (mediaStreamSource.current) {
+      mediaStreamSource.current.disconnect();
+    }
+    if (audioContext.current) {
+      audioContext.current.close();
+    }
+    isCapturing.current = false;
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCapture();
+    };
+  }, []);
+
+  return { startCapture, stopCapture, isCapturing: isCapturing.current };
+};
+
+export function App({ groqApiKey }: { groqApiKey: string }) {
+  const groq = new Groq({ apiKey: groqApiKey, dangerouslyAllowBrowser: true });
   const [videoId, setVideoId] = useState("");
+  const [transcription, setTranscription] = useState("");
+  const { startCapture, stopCapture, isCapturing } = useAudioTranscriber({
+    onTranscribe: (text) => setTranscription((prev) => prev + " " + text),
+    groq,
+  });
+
+  // all related to getting the video
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const urlParam = searchParams.get("url");
@@ -25,6 +134,7 @@ export default function Component() {
   if (!videoId) {
     return <div>Loading...</div>;
   }
+  // end of getting the video
 
   return (
     <div className="flex h-screen w-full">
@@ -43,10 +153,27 @@ export default function Component() {
           </div> */}
         </div>
       </div>
+      <div className="mt-4">
+        <button
+          onClick={isCapturing ? stopCapture : startCapture}
+          className="px-4 py-2 bg-blue-500 text-white rounded"
+        >
+          {isCapturing ? "Stop Transcription" : "Start Transcription"}
+        </button>
+      </div>
+      {/* <div>
+        <button disabled={isRecording} onClick={startRecording}>
+          Start Recording
+        </button>
+        <button disabled={!isRecording} onClick={stopRecording}>
+          Stop Recording
+        </button>
+        {isRecording ? <p>Recording...</p> : <p>Not recording</p>}
+      </div> */}
       <div className="w-[40%] bg-background p-8">
         <div className="flex flex-col h-full rounded-xl border border-input shadow-sm">
           <div className="sticky top-0 flex items-center justify-between bg-background px-4 py-3 border-b border-input">
-            <div className="text-lg font-medium">ChatBot</div>
+            <div className="text-lg font-medium">Transparify</div>
             <Button variant="ghost" size="icon">
               <svg
                 className="w-5 h-5"
@@ -66,67 +193,15 @@ export default function Component() {
             </Button>
           </div>
           <div className="flex-1 overflow-auto p-4">
-            <div className="flex items-start gap-4">
-              <Avatar className="w-8 h-8 border">
-                <AvatarImage src="/placeholder-user.jpg" />
-                <AvatarFallback>OA</AvatarFallback>
-              </Avatar>
-              <div className="grid gap-1">
-                <div className="font-bold">ChatGPT</div>
-                <div className="prose text-muted-foreground">
-                  <p>
-                    Hello! I'm an AI assistant created by Anthropic. How can I
-                    help you today?
-                  </p>
-                </div>
-              </div>
-            </div>
             <div className="flex items-start gap-4 mt-6">
               <Avatar className="w-8 h-8 border">
                 <AvatarImage src="/placeholder-user.jpg" />
                 <AvatarFallback>YO</AvatarFallback>
               </Avatar>
               <div className="grid gap-1">
-                <div className="font-bold">You</div>
+                <div className="font-bold">Video Transcription</div>
                 <div className="prose text-muted-foreground">
-                  <p>
-                    Hi ChatGPT! I'm interested in learning more about the latest
-                    advancements in AI technology. Can you tell me about some of
-                    the exciting developments happening in the field?
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-start gap-4 mt-6">
-              <Avatar className="w-8 h-8 border">
-                <AvatarImage src="/placeholder-user.jpg" />
-                <AvatarFallback>OA</AvatarFallback>
-              </Avatar>
-              <div className="grid gap-1">
-                <div className="font-bold">ChatGPT</div>
-                <div className="prose text-muted-foreground">
-                  <p>
-                    Absolutely! There have been some incredible advancements in
-                    AI technology recently. One of the most exciting
-                    developments is the rapid progress in natural language
-                    processing, which has enabled AI systems like myself to
-                    engage in more natural and contextual conversations.
-                  </p>
-                  <p>
-                    Another area of innovation is in the field of computer
-                    vision, where AI models are now able to analyze and
-                    understand visual information with human-like accuracy. This
-                    has opened up a wide range of applications, from autonomous
-                    vehicles to medical image analysis.
-                  </p>
-                  <p>
-                    Additionally, the increasing availability of large datasets
-                    and the growing computational power of modern hardware have
-                    allowed for the development of more sophisticated and
-                    capable AI models. These advancements are paving the way for
-                    AI to tackle increasingly complex problems and provide
-                    valuable insights across a variety of industries.
-                  </p>
+                  <p>{transcription}</p>
                 </div>
               </div>
             </div>
@@ -169,4 +244,29 @@ export default function Component() {
       </div>
     </div>
   );
+}
+
+export default function Home() {
+  const [key, setKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchApiKeys = async () => {
+      try {
+        const keysEndpoint = "/api/key";
+        const response = await fetch(keysEndpoint);
+        if (response.status === 200) {
+          const key = await response.json();
+          setKey(key);
+        } else {
+          throw new Error("Failed to fetch API keys: " + response.statusText);
+        }
+      } catch (error) {
+        console.error("Failed to fetch API keys:", error);
+      }
+    };
+
+    fetchApiKeys();
+  }, []);
+  if (!key) return <div>Loading...</div>;
+  return <App groqApiKey={key} />;
 }
