@@ -16,6 +16,8 @@
   --message-assistant-bg-color: #30323E;
 }
 
+html, body {margin: 0; height: 100%; overflow: hidden}
+
 body {
   background-color: var(--background-color);
   color: var(--text-color);
