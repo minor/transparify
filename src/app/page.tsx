@@ -3,6 +3,7 @@
 import fetch from "cross-fetch";
 import Groq, { toFile } from "groq-sdk";
 import React, { useEffect, useRef, useState } from "react";
+import { triggerCompletionFlow } from "./utils/tools";
 
 async function transcribe(blob: Blob, groq: Groq) {
   const startTime = performance.now();
@@ -70,7 +71,7 @@ const useAudioRecorder = ({
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
         const transcription = await transcribe(blob, groq);
         onTranscribe(transcription.text);
-      }, 500);
+      }, 2000);
     }
 
     return () => {
@@ -103,7 +104,10 @@ const useAudioRecorder = ({
 function App({ groqApiKey } : { groqApiKey: string }) {
   const groq = new Groq({ apiKey: groqApiKey, dangerouslyAllowBrowser: true });
   const { isRecording, startRecording, stopRecording } = useAudioRecorder({
-    onTranscribe: transcription => console.log(transcription),
+    onTranscribe: async (transcription) => {
+      console.log(transcription);
+      await triggerCompletionFlow(groq, transcription);
+    },
     onRecordingStart: () => console.log("Recording started"),
     onRecordingEnd: () => console.log("Recording ended"),
     groq,

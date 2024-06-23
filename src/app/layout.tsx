@@ -17,12 +17,6 @@ export default function RootLayout({
 
   return (
     <html lang="en" className="h-full">
-      <head>
-        <link rel="preload" href="chat-bubble-white.svg" as="image" type="image/svg+xml" />
-        <link rel="preload" href="chat-bubble.svg" as="image" type="image/svg+xml" />
-        <link rel="preload" href="microphone.svg" as="image" type="image/svg+xml" />
-        <link rel="preload" href="microphone-white.svg" as="image" type="image/svg+xml" />
-      </head>
       <body className={inter.className + " h-full"}>
         {children}
       </body>
