@@ -4,11 +4,13 @@ import Groq, { toFile } from "groq-sdk";
 
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [hAUdioStats, setHAudioStats] = useState({});
+  const [hVideoStats, setHVideoStats] = useState({});
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const sock:WebSocket = connect_hume();
+  let sock: WebSocket;
   let astream: MediaStream;
-  let arecorder:MediaRecorder;
-  let vstream:MediaStream;
+  let arecorder: MediaRecorder;
+  let vstream: MediaStream;
   let vrecorder: MediaRecorder;
   let groq: Groq;
 
@@ -30,29 +32,34 @@ export default function Home() {
 
       arecorder.ondataavailable = (e) => {
         transcribe(e.data, groq);
-        hume_query(sock, e.data, {prosody: {}});
+        hume_query(sock, e.data, { prosody: {} });
       };
       vrecorder.ondataavailable = (e) => {
-        hume_query(sock, e.data, {face: {}});
-      }
+        hume_query(sock, e.data, { face: {} });
+      };
+
+      sock = connect_hume();
 
       setInterval(() => {
         if (!stream || stream.active === false) {
           stopCapture();
           return;
-        };
+        }
         if (arecorder.state == "recording") {
           arecorder.stop();
           arecorder.start();
-        };
+        }
         if (vrecorder.state == "recording") {
           vrecorder.stop();
           vrecorder.start();
-        };
+        }
       }, 3000);
-    };
+    }
 
-    groq = new Groq({ apiKey: process.env.NEXT_PUBLIC_GROQ_API_KEY, dangerouslyAllowBrowser: true });
+    groq = new Groq({
+      apiKey: process.env.NEXT_PUBLIC_GROQ_API_KEY,
+      dangerouslyAllowBrowser: true,
+    });
   }, [stream]);
 
   function stopCapture() {
@@ -84,44 +91,91 @@ export default function Home() {
     console.log(`[TRANSCRIPTION]: ${(endTime - startTime).toFixed(2)} ms`);
     console.log(response);
     return response;
-  };
+  }
 
   function connect_hume(): WebSocket {
-    const socket = new WebSocket(`wss://api.hume.ai/v0/stream/models?apikey=${process.env.NEXT_PUBLIC_HUME_API_KEY}`);
-  
-    socket.addEventListener('open', () => {
+    const socket = new WebSocket(
+      `wss://api.hume.ai/v0/stream/models?apikey=${process.env.NEXT_PUBLIC_HUME_API_KEY}`
+    );
+
+    socket.addEventListener("open", () => {
       console.log("connection to hume established");
     });
-  
-    socket.addEventListener('message', (e) => {
+
+    socket.addEventListener("message", (e) => {
       const data: any = JSON.parse(e.data);
+      if ("face" in data) {
+        setHVideoStats(data.face);
+      } else if ("prosody" in data) {
+        setHAudioStats(data.prosody);
+      }
+
       const frame = Number(data.payload_id);
       console.log(data);
     });
-  
-    socket.addEventListener('close', () => {
+
+    socket.addEventListener("close", () => {
       console.log("connection to hume closed");
     });
-  
+
     return socket;
   }
-  
+
+  function getHumeDisplayEmotions() {
+    const faceEmotions = {};
+    if (!hVideoStats || !hVideoStats.predictions) return [];
+    for (const frame of hVideoStats.predictions) {
+      for (const e of frame.emotions) {
+        if (!(e.name in faceEmotions)) {
+          faceEmotions[e.name] = e.score;
+        } else {
+          faceEmotions[e.name] += e.score;
+        }
+      }
+    }
+
+    for (const emotion in faceEmotions) {
+      faceEmotions[emotion] /= hVideoStats.predictions.length;
+    }
+
+    const voiceEmotions = {};
+    if (!hAUdioStats || !hAUdioStats.predictions) return [];
+    for (const e of hAUdioStats.predictions[0].emotions) {
+      voiceEmotions[e.name] = e.score;
+    }
+
+    const combinedEmotions = {};
+    for (const emotion in faceEmotions) {
+      combinedEmotions[emotion] = Math.max(
+        faceEmotions[emotion],
+        voiceEmotions[emotion]
+      );
+    }
+    const sortedEmotions = [];
+    for (const emotion in combinedEmotions) {
+      sortedEmotions.push([combinedEmotions[emotion], emotion]);
+    }
+    sortedEmotions.sort((a, b) => b[0] - a[0]);
+    console.log(sortedEmotions.slice(0, 5));
+    return sortedEmotions.slice(0, 5);
+  }
+
   async function hume_query(socket: WebSocket, blob: Blob, models: Object) {
     const data = await blobToBase64(blob);
-  
-    const message = JSON.stringify({data, models, raw_text: false});
+
+    const message = JSON.stringify({ data, models, raw_text: false });
     socket.send(message);
   }
-  
+
   function blobToBase64(blob: Blob): Promise<string> {
     return new Promise((resolve: (value: string) => void, _) => {
       const reader = new FileReader();
-  
+
       reader.onloadend = () => {
         if (!reader.result) return;
-  
+
         const result = reader.result as string;
-        resolve(result.split(',')[1]);
+        resolve(result.split(",")[1]);
       };
       reader.readAsDataURL(blob);
     });
@@ -158,9 +212,66 @@ export default function Home() {
                 vrecorder.start();
               }
             }}
-            onPause={() => { arecorder.pause(); vrecorder.pause(); }}
-            onEnded={() => { arecorder.stop(); vrecorder.stop(); }}
+            onPause={() => {
+              arecorder.pause();
+              vrecorder.pause();
+            }}
+            onEnded={() => {
+              arecorder.stop();
+              vrecorder.stop();
+            }}
           />
+        </div>
+
+        <div className="grid size-full place-content-center">
+          {getHumeDisplayEmotions().map(([score, emotion]) => (
+            <div className="flex items-center">
+              <ProgressBar progress={score} />
+              <div className="ml-2 text-sm capitalize">{emotion}</div>
+            </div>
+          ))}
+          {/* 
+          <div className="flex items-center">
+            <div className="mb-1 flex overflow-hidden rounded-full">
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-800"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-800"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+            </div>
+            <div className="ml-2 text-sm capitalize">Calmness</div>
+          </div>
+          <div className="flex items-center">
+            <div className="mb-1 flex overflow-hidden rounded-full">
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+            </div>
+            <div className="ml-2 text-sm capitalize">Joy</div>
+          </div>
+          <div className="flex items-center">
+            <div className="mb-1 flex overflow-hidden rounded-full">
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-800"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+              <div className="resize-none pl-4 pt-4 text-base text-background bg-neutral-200 dark:bg-neutral-700"></div>
+            </div>
+            <div className="ml-2 text-sm capitalize">Amusement</div>
+          </div>
+
+          </div>*/}
         </div>
       </div>
       <div className="w-[40%] bg-background p-8">
@@ -223,11 +334,28 @@ export default function Home() {
             </div>
           </div>
           <div className="sticky bottom-0 bg-background px-4 py-3 border-t border-input">
-            <div className="relative">
-            </div>
+            <div className="relative"></div>
           </div>
         </div>
       </div>
     </div>
   );
 }
+
+const ProgressBar = ({
+  progress,
+  height = "h-4",
+  color = "bg-green-500",
+  backgroundColor = "bg-gray-200",
+}: any) => {
+  return (
+    <div
+      className={`w-full ${height} ${backgroundColor} rounded-full overflow-hidden`}
+    >
+      <div
+        className={`h-full ${color}`}
+        style={{ width: `${progress * 100}%` }}
+      ></div>
+    </div>
+  );
+};
