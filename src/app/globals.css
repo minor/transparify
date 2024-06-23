@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --border-color: #121212;
+  --text-color: #000000;
+  --button-bg-color: #333333;
+  --button-text-color: #f1dbdb;
+  --button-hover-bg-color: #454545;
+  --button-active-bg-color: #555555;
+  --input-bg-color: #333333;
+  --input-text-color: #ffffff;
+  --input-placeholder-color: #888888;
+  --message-user-bg-color: #5B5E72;
+  --message-assistant-bg-color: #30323E;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.fullWrapper {
+  display: flex;
+  height: 100vh; /* ensures the full viewport height */
+  width: 100vw; /* ensures the full viewport width */
+}
+
+.leftSide, .rightSide {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.leftSide {
+  width: 65%;
+  justify-content: space-between; /* spaces children evenly */
+}
+
+.rightSide {
+  width: 35%;
+}
+
+.ErrorTexts, .TranscriptBox, .HumeBox {
+  margin: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: auto; 
+}
+
+.videoBox video {
+  width: auto;  /* Adjust the width to fill the container */
+  height: 100%; /* Scale height automatically based on the aspect ratio */
+  aspect-ratio: 16 / 9;
+  position: relative;
+}
+
+.videoBox {
+  margin: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  width: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.videoBox {
+  flex: 1 1 50%; /* adjusts basis to 50% and allows resizing */
+}
+
+.ErrorTexts {
+  flex: 1 1 30%; /* adjusts basis to 30% and allows resizing */
+}
+
+.TranscriptBox {
+  flex: 2 1 auto; /* Takes up twice as much space as the HumeBox */
+  width: calc(100% - 2rem); /* adjusts for margin */
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: auto; /* allows scrolling if content overflows */
+  margin: 1rem;
+  padding: 1rem;
+  height: 60%;
+}
+
+.HumeBox {
+  flex: 1 1 auto; /* Takes up half the space of the TranscriptBox */
+  width: calc(100% - 2rem); /* adjusts for margin */
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 1rem;
+  padding: 0.5rem;
+  height: 40%;
+}
+
+.shareButton {
+  background-color: var(--button-bg-color);
+  color: var(--button-text-color);
+  align-self: center; /* centers button in its container */
+  margin-top: 1rem;
+  border: none;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-left: 1rem;
+  margin-top: 1rem;
+  cursor: pointer;
+}
+
+.progessbar {
+  display: inline;
+  align-self: left;
+  width: 12rem;
+}
+
+.Ewrapper {
+  display: flex;
+  position: relative;
+  justify-content: left;
+  align-items: center;
+  text-align: left;
+}
