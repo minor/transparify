@@ -18,7 +18,7 @@ export default function Home() {
   const [incorrectTexts, setIncorrectTexts] = useState<Array<Foo>>([]);
   const [hAudioStats, setHAudioStats] = useState<any>({});
   const [hVideoStats, setHVideoStats] = useState<any>({});
-  const [buffer, setBuffer] = useState<string>("");
+  const [stringBuffer, setBuffer] = useState<string>("");
   let astream: MediaStream;
   let arecorder: MediaRecorder;
   let vstream: MediaStream;
@@ -45,28 +45,7 @@ export default function Home() {
 
       arecorder.ondataavailable = (e) => {
         hume_query(sock, e.data, { prosody: {} });
-        transcribe(e.data, groq).then((response) => {
-          const text = response.text;
-          let text_to_send = "";
-          if (text[text.length - 1] === ".") {
-            text_to_send = buffer + text;
-          } else if (buffer.split(".").length > 2) {
-            text_to_send = buffer;
-            setBuffer(text);
-          } else {
-            setBuffer((prevText) => prevText + text);
-          }
-          if (text_to_send) {
-            triggerCompletionFlow(groq, text_to_send).then((out) => {
-              if (!out) return;
-              if (out?.functionCall == "correct") return;
-              setIncorrectTexts((prevTexts) => [
-                ...prevTexts,
-                { txt: out?.text, txt2: out?.functionCall },
-              ]);
-            });
-          }
-        });
+        transcribe(e.data, groq)
       };
       vrecorder.ondataavailable = (e) => {
         hume_query(sock, e.data, { face: {} });
@@ -119,10 +98,23 @@ export default function Home() {
       response_format: "json",
       temperature: 0,
     });
-    const endTime = performance.now();
-    console.log(`[TRANSCRIPTION]: ${(endTime - startTime).toFixed(2)} ms`);
-    console.log(response);
     setTranscript((prevText) => prevText + response.text);
+
+    const sentences = transcript.match(/[^.!?]+[.!?]/g);
+    if (!sentences) {
+      return "No sentences found.";
+    }
+    const lastThree = sentences.slice(-3).join(' ').trim();
+    console.log(lastThree)
+
+    await triggerCompletionFlow(groq, lastThree).then((out) => {
+      if (!out) return;
+      if (out.functionCall === "correct") return
+      setIncorrectTexts((prevTexts) => [
+        ...prevTexts,
+        { txt: lastThree, txt2: out?.functionCall },
+      ]);
+    })
 
     return response;
   }
@@ -145,10 +137,10 @@ export default function Home() {
       }
 
       const frame = Number(data.payload_id);
-      console.log(data);
     });
 
     socket.addEventListener("close", () => {
+      sock = connect_hume();
       console.log("connection to hume closed");
     });
 
@@ -188,7 +180,6 @@ export default function Home() {
       sortedEmotions.push([combinedEmotions[emotion], emotion]);
     }
     sortedEmotions.sort((a, b) => b[0] - a[0]);
-    console.log(sortedEmotions.slice(0, 5));
     return sortedEmotions.slice(0, 5);
   }
 
@@ -224,7 +215,12 @@ export default function Home() {
   }, [transcript]);
 
   return (
-    <div className="fullWrapper">
+    <div className="fullWrapper" >
+      <rect
+            width="100%"
+            height="100%"
+            strokeWidth="{0}"
+          ></rect>
       <div className="leftSide">
         <div>
           <button
@@ -263,22 +259,28 @@ export default function Home() {
           />
         </div>
         <div className="ErrorTexts">
-          {incorrectTexts.map((text, index) => (
-            <div key={index}>
-              <div>Erroneous Statement: {text.txt}</div>
-              <ReactMarkdown>{text.txt2}</ReactMarkdown>
-            </div>
-          ))}
+          <div className="text-lg font-medium">Error Checking</div>
+          <div>
+            {incorrectTexts.map((text, index) => (
+              <div key={index}>
+                <div>Erroneous Statement: {text.txt}</div>
+                <ReactMarkdown>{text.txt2}</ReactMarkdown>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
       <div className="rightSide">
         <div className="TranscriptBox">
           <div className="text-lg font-medium">Transcript</div>
-          <p>{transcript}</p>
-          <div ref={endOfMessagesRef} />
+          <div>
+            <p>{transcript}</p>
+            <div ref={endOfMessagesRef} />
+          </div>
         </div>
         <div className="HumeBox">
+          <div className="text-lg font-medium">Emotional Analysis</div>
           {getHumeDisplayEmotions().map(([score, emotion]) => (
             <div className="flex items-center Ewrapper" key={emotion}>
               <ProgressBar progress={score} />

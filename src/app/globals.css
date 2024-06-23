@@ -43,13 +43,15 @@ html, body {
   width: 35%;
 }
 
-.ErrorTexts, .TranscriptBox, .HumeBox {
-  margin: 1rem;
+.ErrorTexts {
+  margin: 0 0 1rem 1rem;
   padding: 1rem;
   border: 1px solid var(--border-color);
   border-radius: 10px;
   overflow: auto; 
+  width: 97%
 }
+
 
 .videoBox video {
   width: auto;  /* Adjust the width to fill the container */
@@ -67,6 +69,7 @@ html, body {
   display: flex;
   justify-content: center;
   align-items: center;
+  background-color: #000000;
 }
 
 .videoBox {
@@ -82,10 +85,10 @@ html, body {
   width: calc(100% - 2rem); /* adjusts for margin */
   border: 1px solid var(--border-color);
   border-radius: 10px;
+  margin: 5.5rem 0rem 0.5rem 0;
   overflow: auto; /* allows scrolling if content overflows */
-  margin: 1rem;
   padding: 1rem;
-  height: 60%;
+  height: 70%;
 }
 
 .HumeBox {
@@ -93,8 +96,8 @@ html, body {
   width: calc(100% - 2rem); /* adjusts for margin */
   border: 1px solid var(--border-color);
   border-radius: 10px;
+  margin: 0.5rem 1rem 1rem 0rem;
   overflow: hidden;
-  margin: 1rem;
   padding: 0.5rem;
   height: 40%;
 }
