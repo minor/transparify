@@ -37,6 +37,10 @@ export default function Home() {
       }
 
       setInterval(() => {
+        if (!stream || stream.active === false) {
+          stopCapture();
+          return;
+        };
         if (arecorder.state == "recording") {
           arecorder.stop();
           arecorder.start();
@@ -47,11 +51,20 @@ export default function Home() {
         };
       }, 3000);
     };
-    
+
     groq = new Groq({ apiKey: process.env.NEXT_PUBLIC_GROQ_API_KEY, dangerouslyAllowBrowser: true });
   }, [stream]);
 
+  function stopCapture() {
+    if (videoRef?.current?.srcObject) {
+      let tracks = videoRef.current.srcObject.getTracks();
+      tracks.forEach((track: any) => track.stop());
+      videoRef.current.srcObject = null;
+    }
+  }
+
   const handleShareButton = () => {
+    stopCapture();
     navigator.mediaDevices
       .getDisplayMedia({ video: true, audio: true })
       .then((cs) => setStream(cs))
