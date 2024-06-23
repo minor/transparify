@@ -1,298 +1,89 @@
 "use client";
-
-import { useEffect, useRef, useState } from "react";
-import Groq, { toFile } from "groq-sdk";
-import { triggerCompletionFlow } from "./utils/tools";
 import React from "react";
-import ReactMarkdown from "react-markdown";
-
-interface Foo {
-  txt: string;
-  txt2: string;
-}
 
 export default function Home() {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [transcript, setTranscript] = useState<string>("");
-  const [incorrectTexts, setIncorrectTexts] = useState<Array<Foo>>([]);
-  const [hAudioStats, setHAudioStats] = useState<any>({});
-  const [hVideoStats, setHVideoStats] = useState<any>({}); 
-  const [buffer, setBuffer] = useState<string>("");
-  let astream: MediaStream;
-  let arecorder:MediaRecorder;
-  let vstream:MediaStream;
-  let vrecorder: MediaRecorder;
-  let groq: Groq;
-  let sock:WebSocket
-
-  useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-      sock = connect_hume();
-
-      astream = new MediaStream();
-      for (const track of stream.getAudioTracks()) {
-        astream.addTrack(track);
-      }
-      vstream = new MediaStream();
-      for (const track of stream.getVideoTracks()) {
-        vstream.addTrack(track);
-      }
-
-      arecorder = new MediaRecorder(astream);
-      vrecorder = new MediaRecorder(vstream);
-
-      arecorder.ondataavailable = (e) => {
-        hume_query(sock, e.data, {prosody: {}});
-        transcribe(e.data, groq)
-        .then((response) => {
-          const text = response.text;
-          let text_to_send = ""
-          if (text[text.length - 1] === ".") {
-            text_to_send = buffer + text;
-          } else if (buffer.split(".").length > 2) {
-            text_to_send = buffer
-            setBuffer(text);
-          } else {
-            setBuffer(prevText => prevText + text);
-          }
-          if (text_to_send) {
-            triggerCompletionFlow(groq, text_to_send)
-            .then((out) => {
-              if (!out) return;
-              if (out?.functionCall == "correct") return;
-              setIncorrectTexts(prevTexts => [...prevTexts, { txt: out?.text, txt2: out?.functionCall }])
-            })
-          }
-        })
-
-      };
-      vrecorder.ondataavailable = (e) => {
-        hume_query(sock, e.data, {face: {}});
-      }
-
-      setInterval(() => {
-        if (!stream || stream.active === false) {
-          stopCapture();
-          return;
-        }
-        if (arecorder.state == "recording") {
-          arecorder.stop();
-          arecorder.start();
-        };
-        if (vrecorder.state == "recording") {
-          vrecorder.stop();
-          vrecorder.start();
-        };
-      }, 3000);
-    };
-    
-    groq = new Groq({ apiKey: process.env.NEXT_PUBLIC_GROQ_API_KEY, dangerouslyAllowBrowser: true });
-  }, [stream]);
-
-  function stopCapture() {
-    if (videoRef?.current?.srcObject) {
-      let tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach((track: any) => track.stop());
-      videoRef.current.srcObject = null;
-    }
-  }
-
-  const handleShareButton = () => {
-    stopCapture()
-    navigator.mediaDevices
-      .getDisplayMedia({ video: true, audio: true })
-      .then((cs) => setStream(cs))
-      .catch((err: any) => console.error(err));
-  };
-
-  async function transcribe(blob: Blob, groq: Groq) {
-    const startTime = performance.now();
-    const response = await groq.audio.translations.create({
-      file: await toFile(blob, "audio.webm"),
-      model: "whisper-large-v3",
-      prompt: "",
-      response_format: "json",
-      temperature: 0,
-    });
-    const endTime = performance.now();
-    console.log(`[TRANSCRIPTION]: ${(endTime - startTime).toFixed(2)} ms`);
-    console.log(response);
-    setTranscript(prevText => prevText + response.text)
-
-    return response;
-  };
-
-  function connect_hume(): WebSocket {
-    const socket = new WebSocket(
-      `wss://api.hume.ai/v0/stream/models?apikey=${process.env.NEXT_PUBLIC_HUME_API_KEY}`
-    );
-
-    socket.addEventListener("open", () => {
-      console.log("connection to hume established");
-    });
-
-    socket.addEventListener("message", (e) => {
-      const data: any = JSON.parse(e.data);
-      if ("face" in data) {
-        setHVideoStats(data.face);
-      } else if ("prosody" in data) {
-        setHAudioStats(data.prosody);
-      }
-
-      const frame = Number(data.payload_id);
-      console.log(data);
-    });
-
-    socket.addEventListener("close", () => {
-      console.log("connection to hume closed");
-    });
-
-    return socket;
-  }
-
-  function getHumeDisplayEmotions() {
-    let faceEmotions = {};
-    if (!hVideoStats || !hVideoStats.predictions) return [];
-    for (const frame of hVideoStats.predictions) {
-      for (const e of frame.emotions) {
-        if (!(e.name in faceEmotions)) {
-          faceEmotions[e.name] = e.score;
-        } else {
-          faceEmotions[e.name] += e.score;
-        }
-      }
-    }
-
-    for (const emotion in faceEmotions) {
-      faceEmotions[emotion] /= hVideoStats.predictions.length;
-    }
-
-    const voiceEmotions = {};
-    if (!hAudioStats || !hAudioStats.predictions) return [];
-    for (const e of hAudioStats.predictions[0].emotions) {
-      voiceEmotions[e.name] = e.score;
-    }
-
-    const combinedEmotions = {};
-    for (const emotion in faceEmotions) {
-      combinedEmotions[emotion] = (faceEmotions[emotion] + voiceEmotions[emotion]) / 2;
-    }
-    const sortedEmotions = [];
-    for (const emotion in combinedEmotions) {
-      sortedEmotions.push([combinedEmotions[emotion], emotion]);
-    }
-    sortedEmotions.sort((a, b) => b[0] - a[0]);
-    console.log(sortedEmotions.slice(0, 5));
-    return sortedEmotions.slice(0, 5);
-  }
-  
-  async function hume_query(socket: WebSocket, blob: Blob, models: Object) {
-    const data = await blobToBase64(blob);
-  
-    const message = JSON.stringify({data, models, raw_text: false});
-    socket.send(message);
-  }
-  
-  function blobToBase64(blob: Blob): Promise<string> {
-    return new Promise((resolve: (value: string) => void, _) => {
-      const reader = new FileReader();
-  
-      reader.onloadend = () => {
-        if (!reader.result) return;
-  
-        const result = reader.result as string;
-        resolve(result.split(',')[1]);
-      };
-      reader.readAsDataURL(blob);
-    });
-  }
-
-  const endOfMessagesRef = useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = () => {
-    endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [transcript]);
-
   return (
-    <div className="fullWrapper">
-      <div className="leftSide"> 
-        <div >
-            <button
-              onClick={handleShareButton}
-              className="shareButton"
-              type="submit"
+    <main className="min-h-screen bg-gray-50 text-gray-900 antialiased">
+      <div className="relative">
+        <div
+          className="pointer-events-none absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 opacity-[0.15]"
+          style={{
+            backgroundImage: "radial-gradient(#A4A4A3, transparent 50%)",
+          }}
+        ></div>
+
+        <svg
+          className="pointer-events-none absolute inset-0 h-full w-full stroke-gray-400/80 opacity-50 [mask-image:radial-gradient(100%_100%_at_top_center,white,transparent)]"
+          aria-hidden="true"
+        >
+          <defs>
+            <pattern
+              id="83fd4e5a-9d52-42fc-97b6-718e5d7ee527"
+              width="200"
+              height="200"
+              x="50%"
+              y="-1"
+              patternUnits="userSpaceOnUse"
             >
-              <span>{stream ? "Change" : "Share"} Tab</span>
-            </button>
-        </div>
-        <div className="videoBox"> 
-          <video
-            ref={videoRef}
-            autoPlay
-            className="w-full h-full rounded-xl"
-            onPlay={() => {
-              if (arecorder.state === "paused") {
-                arecorder.resume();
-              } else {
-                arecorder.start();
-              }
-              if (vrecorder.state === "paused") {
-                vrecorder.resume();
-              } else {
-                vrecorder.start();
-              }
-            }}
-            onPause={() => { arecorder.pause(); vrecorder.pause(); }}
-            onEnded={() => { arecorder.stop(); vrecorder.stop(); }}
-          />
-        </div>
-        <div className="ErrorTexts">
-        {incorrectTexts.map((text, index) => (
-          <div key={index}>
-            <div>Erroneous Statement: {text.txt}</div>
-            <ReactMarkdown>{text.txt2}</ReactMarkdown>
+              <path d="M100 200V.5M.5 .5H200" fill="none" />
+            </pattern>
+          </defs>
+          <svg x="50%" y="-1" className="overflow-visible fill-gray-50">
+            <path
+              d="M-100.5 0h201v201h-201Z M699.5 0h201v201h-201Z M499.5 400h201v201h-201Z M-300.5 600h201v201h-201Z"
+              strokeWidth="{0}"
+            ></path>
+          </svg>
+          <rect
+            width="100%"
+            height="100%"
+            strokeWidth="{0}"
+            fill="url(#83fd4e5a-9d52-42fc-97b6-718e5d7ee527)"
+          ></rect>
+        </svg>
+        <div className="mx-auto max-w-2xl pt-64 text-center">
+          <div className="relative mx-4 flex flex-col sm:mx-0">
+            <h1 className="relative mb-4 text-5xl font-semibold">
+              Get real-time{" "}
+              <span className="bg-gradient-to-r from-rose-400 to-orange-300 bg-clip-text text-transparent">
+                truth and transparency
+              </span>{" "}
+              in your favorite livestreams
+            </h1>
+
+            <p className="mx-auto max-w-xl text-center text-xl text-gray-600">
+              Transparify is a service that provides real-time livestream
+              fact-checking and emotional analysis for a more informed and
+              transparent viewing experience.
+            </p>
+            <a href="/app">
+              <button
+                className={`bg-rose-400/80 mt-4 text-white px-6 w-1/4 mx-auto py-2 rounded-lg font-semibold transition ease-in-out duration-200 hover:bg-rose-400`}
+              >
+                Share Tab
+              </button>
+            </a>
           </div>
-        ))}
         </div>
       </div>
-
-      <div className="rightSide">
-          <div className="TranscriptBox">
-            <div className="text-lg font-medium">Transcript</div>
-            <p>{transcript}</p>
-            <div ref={endOfMessagesRef} />
-          </div>
-          <div className="HumeBox">
-            {getHumeDisplayEmotions().map(([score, emotion]) => (
-                <div className="flex items-center Ewrapper" key={emotion}>
-                  <ProgressBar progress={score} />
-                  <div className="ml-2 text-sm capitalize">{emotion}</div>
-                </div>
-              ))}
-          </div>
-      </div>
-    </div>
-  );  
-}
-
-const ProgressBar = ({
-  progress,
-  height = "h-4",
-  color = "bg-green-500",
-  backgroundColor = "bg-gray-200",
-}: any) => {
-  return (
-    <div className={`w-full ${height} ${backgroundColor} rounded-full overflow-hidden progessbar`}>
-      <div
-        className={`h-full ${color}`}
-        style={{ width: `${progress * 100}%` }}
-      ></div>
-    </div>
+      <footer className="flex justify-center pt-20 pb-10 bg-gray-50">
+        <h3 className="text-gray-600 font-light text-base cursor-default">
+          hacked together with <span className="hover:text-rose-400">♡</span> by{" "}
+          <a
+            className="underline text-rose-400 text-base hover:text-rose-400/60"
+            href="https://calhacks.io"
+          >
+            3 canadians and 1 american
+          </a>{" "}
+          |{" "}
+          <a
+            className="underline text-rose-400 text-base hover:text-rose-400/60"
+            href="https://github.com/minor/transparify/"
+          >
+            how it works
+          </a>
+        </h3>
+      </footer>
+    </main>
   );
-};
+}
