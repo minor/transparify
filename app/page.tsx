@@ -225,7 +225,7 @@ export default function Home() {
 
         <div className="grid size-full place-content-center">
           {getHumeDisplayEmotions().map(([score, emotion]) => (
-            <div className="flex items-center">
+            <div className="flex items-center" key={emotion}>
               <ProgressBar progress={score} />
               <div className="ml-2 text-sm capitalize">{emotion}</div>
             </div>
