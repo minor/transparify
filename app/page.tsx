@@ -2,6 +2,24 @@
 import { useEffect, useRef, useState } from "react";
 import Groq, { toFile } from "groq-sdk";
 
+import { triggerCompletionFlow } from "./utils/tools"
+
+function eraseWhileSame(s1: string, s2: string) {
+  let i = 0;
+  while (i < s1.length && i < s2.length && s1[i] == s2[i]) {
+    i++;
+  }
+  return s2.slice(i-1, s2.length - i + 1);
+}
+
+function splitAtLastPunct(s: string) {
+  let i = s.length - 1;
+  while (s[i] != '.' && s[i] != '!' && s[i] != '?' && i >= 0) {
+    i--;
+  }
+  return [s.slice(0, i+1), s.slice(i+1, s.length)];
+}
+
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -11,6 +29,11 @@ export default function Home() {
   let vstream:MediaStream;
   let vrecorder: MediaRecorder;
   let groq: Groq;
+
+  let fulltext: string = "";
+  let currmsg: string = "";
+  let leftovers: string = "";
+
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -29,8 +52,19 @@ export default function Home() {
       vrecorder = new MediaRecorder(vstream);
 
       arecorder.ondataavailable = (e) => {
-        transcribe(e.data, groq);
         hume_query(sock, e.data, {prosody: {}});
+        transcribe(e.data, groq).then( (k) => {
+          fulltext += k.text;
+          currmsg += leftovers + k.text;
+          // split currmsg such that anything after last period is in leftovers;
+          [currmsg, leftovers] = splitAtLastPunct(currmsg);
+
+          triggerCompletionFlow(groq, currmsg).then( (e) => {
+            console.log(e.response[1].content);
+            currmsg = eraseWhileSame(e.text, currmsg) + leftovers;
+            leftovers = "";
+          });
+        });
       };
       vrecorder.ondataavailable = (e) => {
         hume_query(sock, e.data, {face: {}});

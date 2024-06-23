@@ -21,6 +21,14 @@ export default async function streamCompletion(
                     Only use the fact check tool for complete statements, not questions or incomplete thoughts.
                     If the user gives a statement that is not a fact checkable statement, you should respond with "None".`,
         },
+        /*{
+            role: "user",
+            content: "There are 80"
+        },
+        {
+            role: "assistant",
+            content: "None"
+        },*/
         ...messages,
       ],
       tools: [factCheckSchema],
@@ -31,6 +39,8 @@ export default async function streamCompletion(
       top_p: 1,
       stream: stream,
     });
+
+    console.log("messages: ", messages)
   
     let contentBuffer = "";
     if (stream) {

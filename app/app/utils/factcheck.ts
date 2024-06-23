@@ -1,7 +1,7 @@
 import Groq from "groq-sdk";
 
 export async function factCheck({ statement }: { statement: string }) {
-    console.log("statement: ", statement)
+    console.log(statement)
       
     const out = await fetch('/api/factcheck', { 
         method: 'POST',
@@ -11,7 +11,7 @@ export async function factCheck({ statement }: { statement: string }) {
         body: JSON.stringify({ statement })
      })
         .then(response => response.json())
-        .then(response => response)
+        .then(response => console.log(response))
         .catch(err => console.error(err));
 
     console.log("out: ", out)

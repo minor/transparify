@@ -13,8 +13,12 @@ export const triggerCompletionFlow = async (groq: Groq, text: string) => {
     );
 
     if (toolCalls.length > 0) {
-        const response = await handleToolCalls(toolCalls);
-        return { text, response };
+        const ret = await handleToolCalls(toolCalls);
+      
+        console.log("HERERERE")
+        console.log(response, toolCalls);
+
+        return ret;
     }
 };
 
@@ -25,6 +29,8 @@ const handleToolCalls = async (
     if (toolCalls.length == 0) {
       throw new Error("only call handleToolCalls with toolCalls > 0");
     }
+
+    console.log("toolCalls: ", toolCalls);
 
     let ret: Groq.Chat.ChatCompletionMessageParam[] = [{ role: "assistant", tool_calls: toolCalls }]
 
@@ -41,6 +47,8 @@ const handleToolCalls = async (
         ];
       }
     }
+
+    console.log("toolCalls: ", ret[0]);
 
     return ret;
   };
