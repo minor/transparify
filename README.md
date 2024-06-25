@@ -1,66 +1,57 @@
-# Speech-to-Speech Groq demo
+# Transparify
 
-## Environment variables
+Transparify provides real-time livestream fact-checking and emotional analysis for a more informed and transparent viewing experience.
+
+Built in ~24 hours @ [Cal Hack's AI Hackathon](https://live.calhacks.io). Won "Best Use of You.com's APIs" Grand Prize and an honorable mention from [Groq](https://groq.com).
+
+[/demo video]
+
+## Tech Stack
+
+- **Framework**: Next.js
+- **APIs**: Groq, Hume, You.com
+- **Styling**: Tailwind CSS
+
+## How it works
+
+[/embed excalidraw image]
+
+## Running Locally
+
+### Cloning the repository to local machine.
+
+```console
+git clone https://github.com/minor/transparify.git
+cd transparify
+```
+
+### Getting API Keys.
+
 The following environment variables are used in this project:
 
 - `GROQ_API_KEY`: API key for accessing Groq services. Get one [here](https://console.groq.com/).
-- `CARTESIA_API_KEY`: API key for accessing Cartesia services (optional: required for text-to-speech abilities). Get one [here](https://play.cartesia.ai/console).
+- `HUME_API_KEY`: API key for accessing Hume's services. Get one [here](https://dev.hume.ai/docs/introduction/api-key).
+- `YOU_DOT_COM_API_KEY`: API key for accessing You.com services. Get one [here](https://api.you.com/).
 
 Rename `.env.local.example` and populate the values.
 
-> **WARNING:** This demo app exposes the API keys in the browser. Assume your keys are readable in plain-text by anyone using the web application.
+### Installing dependencies.
 
-## Login
-
-Username: dummy@groq.com
-
-Password: groqspeed
-
-You can change it here: `src/app/api/auth/[...nextauth]/route.ts`
-
-These variables should be set in your `.env.local` file for local development.
-
-## Happy Hacking!
-
-What follows is the regular Next.js README in case you're not familiar with the Next.js framework.
-
----
-
-# Next.js
-
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```console
+bun install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Running the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Then, run the application in the terminal and it will be available at [http://localhost:3000](http://localhost:3000).
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+```console
+bun run dev
+```
 
-## Learn More
+## Additional Notes
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+- We were trying to target the following problem: Misinformation and disinformation through livestreams is incredibly rampant.
+- We think this idea is just a **proof-of-concept**. The integration may not be the best, but we believe there is definitely a future in which this service is commonly used and extremely impactful.
+  - Imagine opening up your TV and there is real-time information on the side of news broadcasts, where there is important information being added that could change the trajectory of your life.
+  - It’s very important to keep the general public informed and stop the spread of misinformation/disinformation, and we think that Transparify is the first novel project at envisioning how LLMs can curb this in the future.

@@ -45,7 +45,7 @@ export default function Home() {
 
       arecorder.ondataavailable = (e) => {
         hume_query(sock, e.data, { prosody: {} });
-        transcribe(e.data, groq)
+        transcribe(e.data, groq);
       };
       vrecorder.ondataavailable = (e) => {
         hume_query(sock, e.data, { face: {} });
@@ -68,7 +68,7 @@ export default function Home() {
     }
 
     groq = new Groq({
-      apiKey: process.env.NEXT_PUBLIC_GROQ_API_KEY,
+      apiKey: process.env.GROQ_API_KEY,
       dangerouslyAllowBrowser: true,
     });
   }, [stream]);
@@ -104,24 +104,24 @@ export default function Home() {
     if (!sentences) {
       return "No sentences found.";
     }
-    const lastThree = sentences.slice(-3).join(' ').trim();
-    console.log(lastThree)
+    const lastThree = sentences.slice(-3).join(" ").trim();
+    console.log(lastThree);
 
     await triggerCompletionFlow(groq, lastThree).then((out) => {
       if (!out) return;
-      if (out.functionCall === "correct") return
+      if (out.functionCall === "correct") return;
       setIncorrectTexts((prevTexts) => [
         ...prevTexts,
         { txt: lastThree, txt2: out?.functionCall },
       ]);
-    })
+    });
 
     return response;
   }
 
   function connect_hume(): WebSocket {
     const socket = new WebSocket(
-      `wss://api.hume.ai/v0/stream/models?apikey=${process.env.NEXT_PUBLIC_HUME_API_KEY}`
+      `wss://api.hume.ai/v0/stream/models?apikey=${process.env.HUME_API_KEY}`
     );
 
     socket.addEventListener("open", () => {
@@ -215,12 +215,8 @@ export default function Home() {
   }, [transcript]);
 
   return (
-    <div className="fullWrapper" >
-      <rect
-            width="100%"
-            height="100%"
-            strokeWidth="{0}"
-          ></rect>
+    <div className="fullWrapper">
+      <rect width="100%" height="100%" strokeWidth="{0}"></rect>
       <div className="leftSide">
         <div>
           <button
