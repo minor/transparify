@@ -6,8 +6,9 @@ import React from "react";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Groq Speech-to-Speech",
-  description: "Groq Speech-to-Speech",
+  title: "Transparify",
+  description:
+    "Transparify is a service that provides real-time livestream fact-checking and emotional analysis for a more informed and transparent viewing experience.",
 };
 
 export default function RootLayout({
@@ -15,12 +16,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-
   return (
     <html lang="en" className="h-full">
-      <body className={inter.className + " h-full"}>
-        {children}
-      </body>
+      <body className={inter.className + " h-full"}>{children}</body>
     </html>
   );
 }
