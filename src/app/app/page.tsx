@@ -6,7 +6,7 @@ import { triggerCompletionFlow } from "../utils/tools";
 import React from "react";
 import ReactMarkdown from "react-markdown";
 
-interface Foo {
+interface DoubleString {
   txt: string;
   txt2: string;
 }
@@ -15,7 +15,7 @@ export default function Home() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [transcript, setTranscript] = useState<string>("");
-  const [incorrectTexts, setIncorrectTexts] = useState<Array<Foo>>([]);
+  const [incorrectTexts, setIncorrectTexts] = useState<Array<DoubleString>>([]);
   const [hAudioStats, setHAudioStats] = useState<any>({});
   const [hVideoStats, setHVideoStats] = useState<any>({});
   const [stringBuffer, setBuffer] = useState<string>("");
@@ -68,15 +68,15 @@ export default function Home() {
     }
 
     groq = new Groq({
-      apiKey: process.env.GROQ_API_KEY,
+      apiKey: process.env.NEXT_PUBLIC_GROQ_API_KEY,
       dangerouslyAllowBrowser: true,
     });
   }, [stream]);
 
   function stopCapture() {
     if (videoRef?.current?.srcObject) {
-      let tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach((track: any) => track.stop());
+      let tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+      tracks.forEach((track: MediaStreamTrack) => track.stop());
       videoRef.current.srcObject = null;
     }
   }
@@ -98,34 +98,88 @@ export default function Home() {
       response_format: "json",
       temperature: 0,
     });
-    setTranscript((prevText) => prevText + response.text);
+    const newTranscriptText = response.text;
+    // console.log("New transcribed text:", newTranscriptText);
 
-    const sentences = transcript.match(/[^.!?]+[.!?]/g);
-    if (!sentences) {
-      return "No sentences found.";
-    }
-    const lastThree = sentences.slice(-3).join(" ").trim();
-    console.log(lastThree);
+    // Update the transcript state and get the full text
+    setTranscript((prevText) => {
+      const updatedText = prevText + newTranscriptText;
+      const sentences = updatedText.match(/[^.!?]+[.!?]+/g);
 
-    await triggerCompletionFlow(groq, lastThree).then((out) => {
-      if (!out) return;
-      if (out.functionCall === "correct") return;
-      setIncorrectTexts((prevTexts) => [
-        ...prevTexts,
-        { txt: lastThree, txt2: out?.functionCall },
-      ]);
+      if (!sentences) {
+        // console.log("No sentences were found.");
+        return updatedText;
+      }
+
+      // console.log("Sentences found: " + sentences);
+      const lastFive = sentences.slice(-5).join(" ").trim();
+      console.log("Triggering completion flow with " + lastFive);
+
+      // Trigger completion flow
+      triggerCompletionFlow(groq, lastFive).then((out) => {
+        if (!out) return;
+        if (out.functionCall === "correct") return;
+        setIncorrectTexts((prevTexts) => [
+          ...prevTexts,
+          { txt: lastFive, txt2: out?.functionCall },
+        ]);
+      });
+
+      return updatedText;
     });
 
     return response;
   }
 
+  //   const newTranscriptText = response.text;
+  //   console.log("New transcribed text:", newTranscriptText);
+
+  //   // Update the transcript state and get the full text
+  //   let fullText = "";
+  //   setTranscript((prevText) => {
+  //     fullText = prevText + newTranscriptText;
+  //     return fullText;
+  //   });
+
+  //   console.log("Full text so far: " + fullText);
+  //   // const newText = prevText + response.text;
+  //   // setTranscript((prevText) => prevText + response.text);
+  //   // console.log("New transcribed text: ", response.text);
+  //   // console.log(transcript);
+
+  //   // const fullText = transcript + response.text;
+  //   // console.log("\nFull transcribed text up till now: ", fullText);
+
+  //   const sentences = fullText.match(/[^.!?]+[.!?]+/g);
+
+  //   if (!sentences) {
+  //     console.log("no sentences were found");
+  //     return "No sentences found.";
+  //   }
+
+  //   console.log("Sentences found: " + sentences);
+  //   const lastThree = sentences.slice(-3).join(" ").trim();
+  //   console.log(lastThree);
+
+  //   await triggerCompletionFlow(groq, lastThree).then((out) => {
+  //     if (!out) return;
+  //     if (out.functionCall === "correct") return;
+  //     setIncorrectTexts((prevTexts) => [
+  //       ...prevTexts,
+  //       { txt: lastThree, txt2: out?.functionCall },
+  //     ]);
+  //   });
+
+  //   return response;
+  // }
+
   function connect_hume(): WebSocket {
     const socket = new WebSocket(
-      `wss://api.hume.ai/v0/stream/models?apikey=${process.env.HUME_API_KEY}`
+      `wss://api.hume.ai/v0/stream/models?apikey=${process.env.NEXT_PUBLIC_HUME_API_KEY}`
     );
 
     socket.addEventListener("open", () => {
-      console.log("connection to hume established");
+      console.log("Connection to Hume.ai established");
     });
 
     socket.addEventListener("message", (e) => {
@@ -141,14 +195,15 @@ export default function Home() {
 
     socket.addEventListener("close", () => {
       sock = connect_hume();
-      console.log("connection to hume closed");
+      console.log("Connection to Hume.ai closed");
     });
 
     return socket;
   }
 
   function getHumeDisplayEmotions() {
-    let faceEmotions = {};
+    // Add type annotation for faceEmotions to avoid implicit 'any' type
+    let faceEmotions: { [key: string]: number } = {};
     if (!hVideoStats || !hVideoStats.predictions) return [];
     for (const frame of hVideoStats.predictions) {
       for (const e of frame.emotions) {
@@ -164,13 +219,14 @@ export default function Home() {
       faceEmotions[emotion] /= hVideoStats.predictions.length;
     }
 
-    const voiceEmotions = {};
+    // Add type annotation for voiceEmotions to avoid implicit 'any' type
+    let voiceEmotions: { [key: string]: number } = {};
     if (!hAudioStats || !hAudioStats.predictions) return [];
     for (const e of hAudioStats.predictions[0].emotions) {
       voiceEmotions[e.name] = e.score;
     }
 
-    const combinedEmotions = {};
+    let combinedEmotions: { [key: string]: number } = {};
     for (const emotion in faceEmotions) {
       combinedEmotions[emotion] =
         (faceEmotions[emotion] + voiceEmotions[emotion]) / 2;
@@ -179,7 +235,7 @@ export default function Home() {
     for (const emotion in combinedEmotions) {
       sortedEmotions.push([combinedEmotions[emotion], emotion]);
     }
-    sortedEmotions.sort((a, b) => b[0] - a[0]);
+    sortedEmotions.sort((a, b) => (b[0] as number) - (a[0] as number));
     return sortedEmotions.slice(0, 5);
   }
 

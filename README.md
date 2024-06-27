@@ -2,7 +2,7 @@
 
 Transparify provides real-time livestream fact-checking and emotional analysis for a more informed and transparent viewing experience.
 
-Built in ~24 hours @ [Cal Hack's AI Hackathon](https://live.calhacks.io). Won "Best Use of You.com's APIs" Grand Prize and an honorable mention from [Groq](https://groq.com).
+Built in ~24 hours @ [Cal Hack's AI Hackathon](https://live.calhacks.io). Won $10k "Best Use of You.com's APIs" Grand Prize and an honorable mention from [Groq](https://groq.com).
 
 [/demo video]
 
@@ -14,7 +14,7 @@ Built in ~24 hours @ [Cal Hack's AI Hackathon](https://live.calhacks.io). Won "B
 
 ## How it works
 
-[/embed excalidraw image]
+<img src="./.github/transparify-diagram.png" />
 
 ## Running Locally
 
@@ -29,11 +29,11 @@ cd transparify
 
 The following environment variables are used in this project:
 
-- `GROQ_API_KEY`: API key for accessing Groq services. Get one [here](https://console.groq.com/).
-- `HUME_API_KEY`: API key for accessing Hume's services. Get one [here](https://dev.hume.ai/docs/introduction/api-key).
+- `NEXT_PUBLIC_GROQ_API_KEY`: API key for accessing Groq services. Get one [here](https://console.groq.com/).
+- `NEXT_PUBLIC_HUME_API_KEY`: API key for accessing Hume's services. Get one [here](https://dev.hume.ai/docs/introduction/api-key).
 - `YOU_DOT_COM_API_KEY`: API key for accessing You.com services. Get one [here](https://api.you.com/).
 
-Rename `.env.local.example` and populate the values.
+Rename `.env.example` and populate the values. Warning: Remember to check the [docs](https://nextjs.org/docs/pages/building-your-application/configuring/environment-variables) about public environment variables before you deploy to production.
 
 ### Installing dependencies.
 

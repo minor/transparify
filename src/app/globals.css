@@ -12,11 +12,12 @@
   --input-bg-color: #333333;
   --input-text-color: #ffffff;
   --input-placeholder-color: #888888;
-  --message-user-bg-color: #5B5E72;
-  --message-assistant-bg-color: #30323E;
+  --message-user-bg-color: #5b5e72;
+  --message-assistant-bg-color: #30323e;
 }
 
-html, body {
+html,
+body {
   margin: 0;
   height: 100%;
   overflow: hidden;
@@ -28,7 +29,8 @@ html, body {
   width: 100vw; /* ensures the full viewport width */
 }
 
-.leftSide, .rightSide {
+.leftSide,
+.rightSide {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -48,13 +50,12 @@ html, body {
   padding: 1rem;
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  overflow: auto; 
-  width: 97%
+  overflow: auto;
+  width: 97.5%;
 }
 
-
 .videoBox video {
-  width: auto;  /* Adjust the width to fill the container */
+  width: auto; /* Adjust the width to fill the container */
   height: 100%; /* Scale height automatically based on the aspect ratio */
   aspect-ratio: 16 / 9;
   position: relative;

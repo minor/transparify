@@ -44,28 +44,32 @@ export const triggerCompletionFlow = async (groq: Groq, text: string) => {
 };
 
 const handleToolCalls = async (
-    toolCalls: Groq.Chat.ChatCompletionMessageToolCall[]
-  ) => {
-    // Assumed only called with toolCalls > 0
-    if (toolCalls.length == 0) {
+  toolCalls: Groq.Chat.ChatCompletionMessageToolCall[]
+) => {
+  if (toolCalls.length == 0) {
       throw new Error("only call handleToolCalls with toolCalls > 0");
-    }
+  }
 
-    let ret: Groq.Chat.ChatCompletionMessageParam[] = [{ role: "assistant", tool_calls: toolCalls }]
+  console.log("Handling tool calls:", toolCalls);
 
-    for (const toolCall of toolCalls) {
+  let ret: Groq.Chat.ChatCompletionMessageParam[] = [{ role: "assistant", tool_calls: toolCalls }];
+
+  for (const toolCall of toolCalls) {
       const { function: toolFunction } = toolCall;
+      // console.log("Tool function to be called:", toolFunction);
       if (toolFunction && toolHandlers[toolFunction.name]) {
-        const toolResponse = await toolHandlers[toolFunction.name](
-          JSON.parse(toolFunction.arguments)
-        );
+          console.log("Calling tool function with arguments: ", toolFunction.arguments);
+          const toolResponse = await toolHandlers[toolFunction.name](
+              JSON.parse(toolFunction.arguments)
+          );
+          console.log("Tool response:", toolResponse);
 
-        ret = [
-          ...ret,
-          { role: "tool", content: toolResponse, tool_call_id: toolCall.id },
-        ];
+          ret = [
+              ...ret,
+              { role: "tool", content: toolResponse, tool_call_id: toolCall.id },
+          ];
       }
-    }
+  }
 
-    return ret;
-  };
+  return ret;
+};
