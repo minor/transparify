@@ -4,7 +4,7 @@ Transparify provides real-time livestream fact-checking and emotional analysis f
 
 Built in ~24 hours @ [Cal Hack's AI Hackathon](https://live.calhacks.io). Won $10k "Best Use of You.com's APIs" Grand Prize and an honorable mention from [Groq](https://groq.com).
 
-<video src="./.github/transparify-demo.mp4" />
+https://github.com/minor/transparify/assets/31828155/c477c41c-91b7-44b5-ad6b-d1fc4a5bedc2
 
 ## Tech Stack
 
@@ -14,7 +14,8 @@ Built in ~24 hours @ [Cal Hack's AI Hackathon](https://live.calhacks.io). Won $1
 
 ## How it works
 
-<img src="./.github/transparify-diagram.png" />
+![transparify-diagram](https://github.com/minor/transparify/assets/31828155/7f03c0d0-a793-455c-95c9-7571180d46fa)
+
 
 ## Running Locally
 
